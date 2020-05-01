@@ -1,0 +1,6 @@
+-r requirements.txt
+
+# requirements
+
+pytest==4.4.1
+mockito==1.2.1
