@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+import click
+import sys
+import json
+
+from siripo.rule_engine import RuleSetBuilder, RuleEngine
+
+
+@click.command()
+@click.option("--rules-csv", "-r", required=True,
+              help="Path to csv file with the rules.",
+              type=click.Path(exists=True, dir_okay=False, readable=True),
+              )
+@click.option("--input", "-i", "in_file", default=None,
+              help="File used as input with the json data",
+              type=click.Path(exists=True, dir_okay=False, readable=True),
+              )
+@click.option("--output", "-o", "output_file", default=None,
+              help="File to write the output",
+              type=click.Path(dir_okay=False),
+              )
+@click.option('--pretty', "-p", is_flag=True, help="Pretty print output")
+@click.option('--fail', is_flag=True, help="Fail when no rule match")
+def command_run(rules_csv, in_file, output_file, pretty, fail):
+    """ Runs the rule-engine over the input, execute the actions and gets the output.
+    """
+
+    input = read_input(in_file)
+    rule_set = RuleSetBuilder().parse_csv_file(rules_csv)
+    eng = RuleEngine(main_ruleset=rule_set)
+    output, trace = eng.trace(input)
+
+    if output is None and fail:
+        last = trace[len(trace) - 1]
+        if last[1] is None:
+            print("Error: no rule match", file=sys.stderr)
+            exit(1)
+
+    indent = None
+    if pretty:
+        indent = 4
+
+    jsonout = json.dumps(output, indent=indent, sort_keys=True)
+
+    write_output(output_file, jsonout)
+
+
+def read_input(in_file):
+    data = None
+    if in_file is None:
+        data = sys.stdin.read()
+    else:
+        with open(in_file, "r") as fh:
+            data = sys.stdin.read()
+    return json.loads(data)
+
+
+def write_output(output_file, output):
+    if output_file is None:
+        print(output)
+        return
+
+    with open(output_file, "w") as fh:
+        fh.write(output)
+
+
+if __name__ == "__main__":
+    command_run()
